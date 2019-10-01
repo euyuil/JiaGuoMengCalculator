@@ -1,0 +1,403 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>家国梦建筑摆放加成计算器</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.4.1/dist/jquery.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.min.js"></script>
+
+    <style>
+        #app { margin-top: 20px; margin-bottom: 20px; }
+        #app h1 { margin-top: 20px; margin-bottom: 20px; }
+        #app table { margin: 0; }
+        #app .row { margin-top: 15px; margin-bottom: 15px; }
+        #app .alert { margin-top: 15px; margin-bottom: 15px; }
+        #app .普通 td { background-color: #EBF5FB; }
+        #app .稀有 td { background-color: #F4ECF7; }
+        #app .史诗 td { background-color: #FEF5E7; }
+    </style>
+</head>
+
+<body>
+    <div id="app" class="container">
+        <h1>家国梦建筑摆放加成计算器</h1>
+        <div id="no-web-storage-alert" class="alert alert-warning" style="display:none" role="alert">浏览器不支持 HTML5 Web Storage，游戏参数可能无法保存。</div>
+        <div id="error-read-game-parameters-alert" class="alert alert-danger" style="display:none" role="alert">读取游戏参数错误，您需要重新输入游戏参数；保存参数或清除存档可消除此提示。</div>
+        <div class="row">
+            <div class="col-4" v-for="buildingType in buildingTypes">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>{{ buildingType }}</th>
+                            <th>星级</th>
+                            <th>城市任务加成</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(item,名称) in 建筑" v-if="item.类型 == buildingType" v-bind:class="item.品质">
+                            <td class="align-middle">{{ 名称 }}</td>
+                            <td><select-level v-model="gameParameters.建筑[名称].星级"></select-level></td>
+                            <td><input-percent v-model="gameParameters.建筑[名称].城市任务加成"></input-percent></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-4" v-for="boostType in 加成类型">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th colspan="2">{{ boostType }}加成</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="buildingType in buildingTypes">
+                            <td class="align-middle">{{ buildingType }}加成</td>
+                            <td><input-percent v-model="gameParameters.加成[boostType][buildingType]"></input-percent></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <button type="button" class="btn btn-primary" v-on:click="calculateResult">计算结果</button>
+        <button type="button" class="btn btn-success" v-on:click="writeGameParameters">保存参数</button>
+        <button type="button" class="btn btn-danger" v-on:click="clearGameParameters">清除存档</button>
+
+        <div id="calculating-alert" class="alert alert-primary" role="alert" v-show="isCalculating">正在计算最佳方案，请稍候……</div>
+        <div id="calculated-alert" class="alert alert-success" role="alert" v-show="result !== null && !isCalculating">最佳方案计算完毕！</div>
+
+        <div class="row" v-if="result !== null">
+            <div class="col-4" v-for="buildingType in buildingTypes">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>{{ buildingType }}</th>
+                            <th>总产量系数</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(value,key) in result[buildingType]" v-bind:class="buildingInfo[buildingType][key].品质">
+                            <td>{{ key }}</td>
+                            <td>{{ value }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var buildingTypes = ['住宅', '商业', '工业'];
+        var buildingInfo = {
+            住宅: {
+                木屋:     { 类型: '住宅', 品质: '普通', 收益调整: 1.000, 建筑加成: { 木材厂:   1 }, 类型加成: {           }                },
+                居民楼:   { 类型: '住宅', 品质: '普通', 收益调整: 1.000, 建筑加成: { 便利店:   1 }, 类型加成: {           }                },
+                钢结构房: { 类型: '住宅', 品质: '普通', 收益调整: 1.000, 建筑加成: { 钢铁厂:   1 }, 类型加成: {           }                },
+                平房:     { 类型: '住宅', 品质: '普通', 收益调整: 1.100, 建筑加成: {             }, 类型加成: { 住宅: 0.2 }                },
+                小型公寓: { 类型: '住宅', 品质: '普通', 收益调整: 1.180, 建筑加成: {             }, 类型加成: {           }                },
+                人才公寓: { 类型: '住宅', 品质: '稀有', 收益调整: 1.400, 建筑加成: {             }, 类型加成: { 工业:0.15 }, 在线加成: 0.2 },
+                中式小楼: { 类型: '住宅', 品质: '稀有', 收益调整: 1.400, 建筑加成: {             }, 类型加成: { 住宅:0.15 }, 在线加成: 0.2 },
+                花园洋房: { 类型: '住宅', 品质: '稀有', 收益调整: 1.022, 建筑加成: { 商贸中心: 1 }, 类型加成: {           }                },
+                空中别墅: { 类型: '住宅', 品质: '史诗', 收益调整: 1.520, 建筑加成: { 民食斋:   1 }, 类型加成: {           }, 在线加成: 0.2 },
+                复兴公馆: { 类型: '住宅', 品质: '史诗', 收益调整: 1.000, 建筑加成: {             }, 类型加成: {           }, 离线加成: 0.1 },
+            },
+            商业: {
+                便利店:   { 类型: '商业', 品质: '普通', 收益调整: 1.000, 建筑加成: { 居民楼:   1 }, 类型加成: {           }                },
+                菜市场:   { 类型: '商业', 品质: '普通', 收益调整: 1.000, 建筑加成: { 食品厂:   1 }, 类型加成: {           }                },
+                服装店:   { 类型: '商业', 品质: '普通', 收益调整: 1.000, 建筑加成: { 纺织厂:   1 }, 类型加成: {           }                },
+                五金店:   { 类型: '商业', 品质: '普通', 收益调整: 1.000, 建筑加成: { 零件厂:   1 }, 类型加成: {           }                },
+                学校:     { 类型: '商业', 品质: '普通', 收益调整: 1.000, 建筑加成: { 图书城:   1 }, 类型加成: {           }                },
+                图书城:   { 类型: '商业', 品质: '稀有', 收益调整: 1.000, 建筑加成: {学校:1,造纸厂:1},类型加成:{           }                },
+                加油站:   { 类型: '商业', 品质: '稀有', 收益调整: 1.204, 建筑加成: {人民石油: 0.5}, 类型加成: {           }, 离线加成: 0.1 },
+                商贸中心: { 类型: '商业', 品质: '稀有', 收益调整: 1.022, 建筑加成: { 花园洋房: 1 }, 类型加成: {           }                },
+                民食斋:   { 类型: '商业', 品质: '史诗', 收益调整: 1.520, 建筑加成: { 空中别墅: 1 }, 类型加成: {           }, 在线加成: 0.2 },
+                媒体之声: { 类型: '商业', 品质: '史诗', 收益调整: 1.615, 建筑加成: {             }, 类型加成: {           },全部加成:.05,离线加成:.1},
+            },
+            工业: {
+                木材厂:   { 类型: '工业', 品质: '普通', 收益调整: 1.000, 建筑加成: { 木屋:     1 }, 类型加成: {           }                },
+                食品厂:   { 类型: '工业', 品质: '普通', 收益调整: 1.000, 建筑加成: { 菜市场:   1 }, 类型加成: {           }                },
+                造纸厂:   { 类型: '工业', 品质: '普通', 收益调整: 1.000, 建筑加成: { 图书城:   1 }, 类型加成: {           }                },
+                水厂:     { 类型: '工业', 品质: '普通', 收益调整: 1.260, 建筑加成: {             }, 类型加成: {           }, 离线加成: 0.1 },
+                电厂:     { 类型: '工业', 品质: '普通', 收益调整: 1.180, 建筑加成: {             }, 类型加成: {           }, 在线加成: 0.2 },
+                纺织厂:   { 类型: '工业', 品质: '稀有', 收益调整: 1.000, 建筑加成: { 服装店:   1 }, 类型加成: { 商业:0.15 }                },
+                钢铁厂:   { 类型: '工业', 品质: '稀有', 收益调整: 1.000, 建筑加成: { 钢结构房: 1 }, 类型加成: { 工业:0.15 }                },
+                零件厂:   { 类型: '工业', 品质: '稀有', 收益调整: 1.000, 建筑加成: {五金店:1,企鹅机械:.5},类型加成:{      }                },
+                企鹅机械: { 类型: '工业', 品质: '史诗', 收益调整: 1.330, 建筑加成: { 零件厂:   1 }, 类型加成: {           }, 全部加成: 0.1 },
+                人民石油: { 类型: '工业', 品质: '史诗', 收益调整: 1.000, 建筑加成: { 加油站:   1 }, 类型加成: {           }, 离线加成: 0.1 },
+            },
+        };
+        var starInfo = [0, 1, 2, 6, 24, 120];
+
+        function getDefaultGameParameters() {
+            return {
+                建筑: {
+                    木屋:     { 星级: 0, 城市任务加成: 0 },
+                    居民楼:   { 星级: 0, 城市任务加成: 0 },
+                    钢结构房: { 星级: 0, 城市任务加成: 0 },
+                    平房:     { 星级: 0, 城市任务加成: 0 },
+                    小型公寓: { 星级: 0, 城市任务加成: 0 },
+                    人才公寓: { 星级: 0, 城市任务加成: 0 },
+                    中式小楼: { 星级: 0, 城市任务加成: 0 },
+                    花园洋房: { 星级: 0, 城市任务加成: 0 },
+                    空中别墅: { 星级: 0, 城市任务加成: 0 },
+                    复兴公馆: { 星级: 0, 城市任务加成: 0 },
+
+                    便利店:   { 星级: 0, 城市任务加成: 0 },
+                    菜市场:   { 星级: 0, 城市任务加成: 0 },
+                    服装店:   { 星级: 0, 城市任务加成: 0 },
+                    五金店:   { 星级: 0, 城市任务加成: 0 },
+                    学校:     { 星级: 0, 城市任务加成: 0 },
+                    图书城:   { 星级: 0, 城市任务加成: 0 },
+                    加油站:   { 星级: 0, 城市任务加成: 0 },
+                    商贸中心: { 星级: 0, 城市任务加成: 0 },
+                    民食斋:   { 星级: 0, 城市任务加成: 0 },
+                    媒体之声: { 星级: 0, 城市任务加成: 0 },
+
+                    木材厂:   { 星级: 0, 城市任务加成: 0 },
+                    食品厂:   { 星级: 0, 城市任务加成: 0 },
+                    造纸厂:   { 星级: 0, 城市任务加成: 0 },
+                    水厂:     { 星级: 0, 城市任务加成: 0 },
+                    电厂:     { 星级: 0, 城市任务加成: 0 },
+                    纺织厂:   { 星级: 0, 城市任务加成: 0 },
+                    钢铁厂:   { 星级: 0, 城市任务加成: 0 },
+                    零件厂:   { 星级: 0, 城市任务加成: 0 },
+                    企鹅机械: { 星级: 0, 城市任务加成: 0 },
+                    人民石油: { 星级: 0, 城市任务加成: 0 },
+                },
+                加成: {
+                    城市任务: {
+                        住宅: 0,
+                        商业: 0,
+                        工业: 0,
+                    },
+                    政策: {
+                        住宅: 0,
+                        商业: 0,
+                        工业: 0,
+                    },
+                    照片: {
+                        住宅: 0,
+                        商业: 0,
+                        工业: 0,
+                    },
+                }
+            };
+        }
+        var loadGameParameters = function() { return getDefaultGameParameters(); };
+        var saveGameParameters = function(gameParameters) { };
+        if (typeof(Storage) !== "undefined") {
+            loadGameParameters = function() {
+                gameParameters = localStorage.getItem('gameParameters');
+                if (gameParameters === null) return getDefaultGameParameters();
+                try {
+                    return JSON.parse(gameParameters);
+                } catch (e) {
+                    $(document).ready(function() {
+                        $('#error-read-game-parameters-alert').css('display', 'block');
+                    });
+                    return getDefaultGameParameters();
+                }
+            };
+            saveGameParameters = function(gameParameters) {
+                if (gameParameters === null) localStorage.removeItem('gameParameters');
+                else localStorage.setItem('gameParameters', JSON.stringify(gameParameters));
+            };
+        } else {
+            $(document).ready(function() {
+                $('#no-web-storage-alert').css('display', 'block');
+            });
+        }
+
+        function countIf(collection, predicate) {
+            var c = 0;
+            for (var index in collection)
+                if (predicate(index, collection)) ++c;
+            return c;
+        }
+
+        function calculateBestLayoutRecursive(gameParameters, cache) {
+            for (var i = 0; i < buildingTypes.length; ++i) {
+                var buildingType = buildingTypes[i];
+                var 当前建筑种类方案 = cache.当前方案[i];
+                if (当前建筑种类方案.length >= cache.建筑数量限制[i]) continue;
+
+                var start = 0;
+                if (当前建筑种类方案.length > 0)
+                    start = 当前建筑种类方案[当前建筑种类方案.length - 1] + 1;
+
+                var keys = Object.keys(buildingInfo[buildingType]);
+                for (var j = start; j < keys.length; ++j) {
+                    buildingName = keys[j];
+                    if (gameParameters.建筑[buildingName].星级 == 0) continue;
+                    当前建筑种类方案.push(j);
+                    calculateBestLayoutRecursive(gameParameters, cache);
+                    当前建筑种类方案.pop();
+                }
+                return;
+            }
+
+            // Initialize with 建筑自身产量；政策、照片加成；城市任务加成
+            var result = {};
+            for (var i = 0; i < buildingTypes.length; ++i) {
+                var buildingType = buildingTypes[i];
+                result[buildingType] = {};
+
+                var keys = Object.keys(buildingInfo[buildingType]);
+                for (var j = 0; j < cache.当前方案[i].length; ++j) {
+                    buildingIndex = cache.当前方案[i][j];
+                    buildingName = keys[buildingIndex];
+                    建筑自身产量系数 = buildingInfo[buildingType][buildingName].收益调整 * starInfo[gameParameters.建筑[buildingName].星级];
+                    政策照片加成系数 = cache.政策照片产量系数[buildingType];
+                    城市任务加成系数 = 1 + (parseInt(gameParameters.加成.城市任务[buildingType]) + parseInt(gameParameters.建筑[buildingName].城市任务加成)) / 100;
+                    result[buildingType][buildingName] = 建筑自身产量系数 * 政策照片加成系数 * 城市任务加成系数;
+                }
+            }
+
+            // Apply 建筑互相加成
+            var typeDict = {}; // type => [buildingName, ...]
+            var buildingBoost = {};
+            for (var i = 0; i < buildingTypes.length; ++i) {
+                var buildingType = buildingTypes[i];
+                typeDict[buildingType] = [];
+                var keys = Object.keys(buildingInfo[buildingType]);
+                for (var j = 0; j < cache.当前方案[i].length; ++j) {
+                    buildingIndex = cache.当前方案[i][j];
+                    buildingName = keys[buildingIndex];
+                    typeDict[buildingType].push(buildingName);
+                    buildingBoost[buildingName] = 1;
+                }
+            }
+
+            for (var i = 0; i < buildingTypes.length; ++i) {
+                var buildingType = buildingTypes[i];
+                var keys = Object.keys(buildingInfo[buildingType]);
+                for (var j = 0; j < cache.当前方案[i].length; ++j) {
+                    buildingIndex = cache.当前方案[i][j];
+                    buildingName = keys[buildingIndex];
+
+                    // Evaluate 建筑加成
+                    建筑加成表 = buildingInfo[buildingType][buildingName].建筑加成;
+                    for (var name in 建筑加成表)
+                        if (name in buildingBoost)
+                            buildingBoost[name] += 建筑加成表[name] * parseInt(gameParameters.建筑[name].星级);
+
+                    // Evaluate 类型加成
+                    类型加成表 = buildingInfo[buildingType][buildingName].类型加成;
+                    for (var type in 类型加成表)
+                        for (var name in typeDict[type])
+                            if (name in buildingBoost)
+                                buildingBoost[name] += 类型加成表[type] * parseInt(gameParameters.建筑[name].星级);
+                }
+            }
+
+            var total = 0;
+            for (var i = 0; i < buildingTypes.length; ++i) {
+                var buildingType = buildingTypes[i];
+                var keys = Object.keys(buildingInfo[buildingType]);
+                for (var j = 0; j < cache.当前方案[i].length; ++j) {
+                    buildingIndex = cache.当前方案[i][j];
+                    buildingName = keys[buildingIndex];
+                    result[buildingType][buildingName] *= buildingBoost[buildingName];
+                    total += result[buildingType][buildingName];
+                }
+            }
+
+            if (total > cache.最佳方案产量) {
+                cache.最佳方案产量 = total;
+                cache.最佳方案 = result;
+            }
+        }
+
+        function calculateBestLayout(gameParameters) {
+            var cache = {
+                政策照片产量系数: {
+                    住宅: (1 + parseInt(gameParameters.加成.政策.住宅) / 100) * (1 + parseInt(gameParameters.加成.照片.住宅) / 100),
+                    商业: (1 + parseInt(gameParameters.加成.政策.商业) / 100) * (1 + parseInt(gameParameters.加成.照片.商业) / 100),
+                    工业: (1 + parseInt(gameParameters.加成.政策.工业) / 100) * (1 + parseInt(gameParameters.加成.照片.工业) / 100),
+                },
+                当前方案: [ [], [], [] ],
+                建筑数量限制: [
+                    Math.min(3, countIf(buildingInfo.住宅, function(i) { return gameParameters.建筑[i].星级 > 0; })),
+                    Math.min(3, countIf(buildingInfo.商业, function(i) { return gameParameters.建筑[i].星级 > 0; })),
+                    Math.min(3, countIf(buildingInfo.工业, function(i) { return gameParameters.建筑[i].星级 > 0; })),
+                ],
+                最佳方案: null,
+                最佳方案产量: 0
+            };
+
+            calculateBestLayoutRecursive(gameParameters, cache);
+            if (cache.最佳方案 === null) return null;
+
+            result = {};
+            for (var i = 0; i < buildingTypes.length; ++i) {
+                var buildingType = buildingTypes[i];
+                result[buildingType] = {};
+                keys = Object.keys(cache.最佳方案[buildingType]);
+                keys.sort(function(a, b) { return cache.最佳方案[buildingType][b] - cache.最佳方案[buildingType][a]; });
+                for (var j = 0; j < keys.length; ++j) {
+                    var key = keys[j];
+                    result[buildingType][key] = cache.最佳方案[buildingType][key];
+                }
+            }
+
+            return result;
+        }
+
+        Vue.component('select-level', {
+            props: ['value'],
+            template: `
+                <select class="form-control form-control-sm" style="width:auto" v-bind:value="value" v-on:input="$emit('input', $event.target.value)">
+                    <option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+                </select>
+            `
+        });
+
+        Vue.component('input-percent', {
+            props: ['value'],
+            template: `
+                <div class="input-group input-group-sm">
+                    <input class="form-control text-right" style="width:120px" v-bind:value="value" v-on:input="$emit('input', $event.target.value)">
+                    <div class="input-group-append">
+                        <span class="input-group-text">%</span>
+                    </div>
+                </div>
+            `
+        });
+
+        var app = new Vue({
+            el: '#app',
+            data: function() {
+                return {
+                    buildingTypes: buildingTypes,
+                    加成类型: ['城市任务', '政策', '照片'],
+                    建筑: Object.assign({}, buildingInfo.住宅, buildingInfo.商业, buildingInfo.工业),
+                    gameParameters: loadGameParameters(),
+                    isCalculating: false,
+                    result: null
+                };
+            },
+            methods: {
+                calculateResult: function() {
+                    this.isCalculating = true;
+                    this.result = calculateBestLayout(this.gameParameters);
+                    this.isCalculating = false;
+                },
+                writeGameParameters: function() {
+                    saveGameParameters(this.gameParameters);
+                    alert('游戏参数已保存。');
+                },
+                clearGameParameters: function() {
+                    saveGameParameters(null);
+                    alert('已清除先前存储的游戏参数，刷新页面后参数将重置。');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
