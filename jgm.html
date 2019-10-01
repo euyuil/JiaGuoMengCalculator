@@ -12,6 +12,7 @@
     <style>
         #app { margin-top: 20px; margin-bottom: 20px; }
         #app h1 { margin-top: 20px; margin-bottom: 20px; }
+        #app footer { margin-top: 20px; margin-bottom: 20px; }
         #app table { margin: 0; }
         #app .row { margin-top: 15px; margin-bottom: 15px; }
         #app .alert { margin-top: 15px; margin-bottom: 15px; }
@@ -23,7 +24,7 @@
 
 <body>
     <div id="app" class="container">
-        <h1>家国梦建筑摆放加成计算器</h1>
+        <h1>家国梦建筑摆放加成计算器 <a href="https://www.liuyuesoft.com/jgm.html" target="_blank"><small class="text-muted">liuyuesoft.com/jgm.html</small></a></h1>
         <div id="no-web-storage-alert" class="alert alert-warning" style="display:none" role="alert">浏览器不支持 HTML5 Web Storage，游戏参数可能无法保存。</div>
         <div id="error-read-game-parameters-alert" class="alert alert-danger" style="display:none" role="alert">读取游戏参数错误，您需要重新输入游戏参数；保存参数或清除存档可消除此提示。</div>
         <div class="row">
@@ -90,7 +91,16 @@
                 </table>
             </div>
         </div>
-    </div>
+
+        <footer>
+            <hr>
+            <span class="text-muted">
+                Copyright &copy; 2019 <a href="https://www.liuyuesoft.com/jgm.html" target="_blank">LiuYueSoft</a>.
+                Released Under <a href="https://github.com/euyuil/JiaGuoMengCalculator/blob/master/LICENSE" target="_blank">the GPL License</a>.
+                <a href="https://github.com/euyuil/JiaGuoMengCalculator" target="_blank">GitHub Link</a>.
+            </span>
+        </footer>
+    </div><!-- #app.container -->
 
     <script>
         var buildingTypes = ['住宅', '商业', '工业'];
