@@ -295,14 +295,14 @@
                     建筑加成表 = buildingInfo[buildingType][buildingName].建筑加成;
                     for (var name in 建筑加成表)
                         if (name in buildingBoost)
-                            buildingBoost[name] += 建筑加成表[name] * parseInt(gameParameters.建筑[name].星级);
+                            buildingBoost[name] += 建筑加成表[name] * parseInt(gameParameters.建筑[buildingName].星级);
 
                     // Evaluate 类型加成
                     类型加成表 = buildingInfo[buildingType][buildingName].类型加成;
                     for (var type in 类型加成表)
                         for (var name in typeDict[type])
                             if (name in buildingBoost)
-                                buildingBoost[name] += 类型加成表[type] * parseInt(gameParameters.建筑[name].星级);
+                                buildingBoost[name] += 类型加成表[type] * parseInt(gameParameters.建筑[buildingName].星级);
                 }
             }
 
